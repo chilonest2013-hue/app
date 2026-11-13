@@ -7,21 +7,27 @@
 @keyframes r{to{transform:rotate(360deg)}}b{letter-spacing:.06em}.e{color:#ffb4a8;display:none;max-width:420px;margin-top:12px;font-size:14px;line-height:1.4}
 button{margin-top:14px;padding:10px 18px;border:0;border-radius:10px;background:#d4af37;color:#111;font-weight:600;cursor:pointer;display:none}</style></head>
 <body><div class="w"><div><div class="s" id="s"></div><b>AI CHILON</b><div id="t" style="opacity:.7;margin-top:6px">Открываю приложение…</div>
-<div class="e" id="e">Не удалось связаться с ботом. Проверьте интернет. Если не помогает — бот на сервере сейчас выключен, сообщите администратору.</div><button id="b" onclick="go()">Повторить</button></div></div>
+<div class="e" id="e">Не удалось связаться с ботом. Проверьте интернет. Если не помогает — компьютер с ботом сейчас выключен, сообщите администратору.</div><button id="b" onclick="location.reload()">Повторить</button></div></div>
 <script>
 (function () {
+  var TOPIC = 'chilon-d7cb1235f02b25b0e899765a', PUB = {"kty":"EC","crv":"P-256","x":"95hvspcCwiwJD5acC5iMnl04sUSg5GC7tGeuZ1w_uiA","y":"JPfzFiCbmuAvhKsiCi_PqlgSL642K0X6vzz7l_gLvg0"};
   var host = location.hostname.split('.')[0], repo = location.pathname.split('/').filter(Boolean)[0] || '';
-  var src = ['https://raw.githubusercontent.com/' + host + '/' + repo + '/main/url.json?t=' + Date.now(),
-             'https://api.github.com/repos/' + host + '/' + repo + '/contents/url.json'];
-  function fail() { document.getElementById('s').style.display = 'none'; document.getElementById('t').style.display = 'none'; document.getElementById('e').style.display = 'block'; document.getElementById('b').style.display = 'inline-block'; }
-  function load(i) {
-    if (i >= src.length) return fail();
-    var x = new XMLHttpRequest(); x.open('GET', src[i]); x.timeout = 12000;
-    if (i === 1) x.setRequestHeader('Accept', 'application/vnd.github.raw+json');
-    x.onload = function () { try { var j = JSON.parse(x.responseText); if (!/^https:\/\//.test(j.url)) throw 0; location.replace(j.url.replace(/\/+$/, '') + '/' + location.search + location.hash); } catch (e) { load(i + 1); } };
-    x.onerror = x.ontimeout = function () { load(i + 1); }; x.send();
+  function fail() { ['s', 't'].forEach(function (i) { document.getElementById(i).style.display = 'none'; }); document.getElementById('e').style.display = 'block'; document.getElementById('b').style.display = 'inline-block'; }
+  function go(u) { location.replace(u.replace(/\/+$/, '') + '/' + location.search + location.hash); }
+  function b64(s) { var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function signed() {
+    return fetch('https://ntfy.sh/' + TOPIC + '/json?poll=1&since=24h', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
+      var L = t.split('\n').filter(Boolean).map(function (x) { try { return JSON.parse(x); } catch (e) { return null; } }).filter(function (x) { return x && x.event === 'message'; });
+      if (!L.length) throw 0;
+      var m = JSON.parse(L[L.length - 1].message);
+      return crypto.subtle.importKey('jwk', PUB, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']).then(function (k) {
+        return crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, k, b64(m.sig), new TextEncoder().encode(m.url + '|' + m.at));
+      }).then(function (ok) { if (!ok || !/^https:\/\//.test(m.url)) throw 0; return m.url; });
+    });
   }
-  window.go = function () { location.reload(); };
-  load(0);
+  function fromRepo() {
+    return fetch('https://raw.githubusercontent.com/' + host + '/' + repo + '/main/url.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) { if (!/^https:\/\//.test(j.url)) throw 0; return j.url; });
+  }
+  signed().catch(fromRepo).then(go).catch(fail);
 })();
 </script></body></html>
