@@ -1,20 +1,44 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>AI CHILON</title>
-<style>html,body{margin:0;height:100%;background:#0f1f19;color:#e8efe9;font:16px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+<style>html,body{margin:0;height:100%;background:#0f1f19;color:#e8efe9;font:16px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
 .w{height:100%;display:grid;place-items:center;text-align:center;padding:24px;box-sizing:border-box}
 .s{width:44px;height:44px;border:4px solid rgba(255,255,255,.15);border-top-color:#d4af37;border-radius:50%;margin:0 auto 18px;animation:r 1s linear infinite}
 @keyframes r{to{transform:rotate(360deg)}}b{letter-spacing:.06em}.e{color:#ffb4a8;display:none;max-width:420px;margin-top:12px;font-size:14px;line-height:1.4}
-button{margin-top:14px;padding:10px 18px;border:0;border-radius:10px;background:#d4af37;color:#111;font-weight:600;cursor:pointer;display:none}</style></head>
-<body><div class="w"><div><div class="s" id="s"></div><b>AI CHILON</b><div id="t" style="opacity:.7;margin-top:6px">Открываю приложение…</div>
+button{margin-top:14px;padding:10px 18px;border:0;border-radius:10px;background:#d4af37;color:#111;font-weight:600;cursor:pointer;display:none}
+iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0f1f19}</style></head>
+<body><div class="w" id="w"><div><div class="s" id="s"></div><b>AI CHILON</b><div id="t" style="opacity:.7;margin-top:6px">Открываю приложение…</div>
 <div class="e" id="e">Не удалось связаться с ботом. Проверьте интернет. Если не помогает — компьютер с ботом сейчас выключен, сообщите администратору.</div><button id="b" onclick="location.reload()">Повторить</button></div></div>
 <script>
 (function () {
   var TOPIC = 'chilon-d7cb1235f02b25b0e899765a', PUB = {"kty":"EC","crv":"P-256","x":"95hvspcCwiwJD5acC5iMnl04sUSg5GC7tGeuZ1w_uiA","y":"JPfzFiCbmuAvhKsiCi_PqlgSL642K0X6vzz7l_gLvg0"};
   var host = location.hostname.split('.')[0], repo = location.pathname.split('/').filter(Boolean)[0] || '';
+  var frame = null, origin = '';
   function fail() { ['s', 't'].forEach(function (i) { document.getElementById(i).style.display = 'none'; }); document.getElementById('e').style.display = 'block'; document.getElementById('b').style.display = 'inline-block'; }
-  function go(u) { location.replace(u.replace(/\/+$/, '') + '/' + location.search + location.hash); }
   function b64(s) { var b = atob(s), a = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); return a; }
+  function up(type, data) {
+    var str = JSON.stringify(data === undefined ? null : data);
+    if (window.TelegramWebviewProxy !== undefined) window.TelegramWebviewProxy.postEvent(type, str);
+    else if (window.external && 'notify' in window.external) window.external.notify(JSON.stringify({ eventType: type, eventData: data }));
+    else if (window.parent !== window) window.parent.postMessage(JSON.stringify({ eventType: type, eventData: data }), '*');
+  }
+  function down(type, data) { if (frame && frame.contentWindow) frame.contentWindow.postMessage(JSON.stringify({ eventType: type, eventData: data }), origin || '*'); }
+  window.Telegram = { WebView: { receiveEvent: down } }; window.TelegramGameProxy = { receiveEvent: down }; window.TelegramGameProxy_receiveEvent = down;
+  window.addEventListener('message', function (ev) {
+    var d; try { d = typeof ev.data === 'string' ? JSON.parse(ev.data) : ev.data; } catch (e) { return; }
+    if (!d || !d.eventType) return;
+    if (frame && ev.source === frame.contentWindow) { if (d.eventType === 'iframe_ready' || d.eventType === 'iframe_will_reload') return; up(d.eventType, d.eventData); }
+    else if (ev.source === window.parent && window.parent !== window) down(d.eventType, d.eventData);
+  });
+  function open(u) {
+    u = u.replace(/\/+$/, ''); origin = u;
+    frame = document.createElement('iframe');
+    frame.allow = 'fullscreen; clipboard-read; clipboard-write; camera; microphone; geolocation; web-share';
+    frame.setAttribute('allowfullscreen', '');
+    frame.src = u + '/' + location.search + location.hash;
+    frame.onload = function () { var w = document.getElementById('w'); if (w) w.remove(); };
+    document.body.appendChild(frame);
+  }
   function signed() {
     return fetch('https://ntfy.sh/' + TOPIC + '/json?poll=1&since=24h', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) {
       var L = t.split('\n').filter(Boolean).map(function (x) { try { return JSON.parse(x); } catch (e) { return null; } }).filter(function (x) { return x && x.event === 'message'; });
@@ -28,6 +52,6 @@ button{margin-top:14px;padding:10px 18px;border:0;border-radius:10px;background:
   function fromRepo() {
     return fetch('https://raw.githubusercontent.com/' + host + '/' + repo + '/main/url.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (j) { if (!/^https:\/\//.test(j.url)) throw 0; return j.url; });
   }
-  signed().catch(fromRepo).then(go).catch(fail);
+  signed().catch(fromRepo).then(open).catch(fail);
 })();
 </script></body></html>
